@@ -545,6 +545,7 @@ export default function Home() {
                 role: "Командир · NASA",
                 flag: "🇺🇸",
                 desc: "Капитан ВМС США, совершил полёт на МКС в 2014 году. Налетал 165 дней в космосе.",
+                img: "/wiseman.jpg",
               },
               {
                 name: "Виктор Гловер",
@@ -552,6 +553,7 @@ export default function Home() {
                 role: "Пилот · NASA",
                 flag: "🇺🇸",
                 desc: "Капитан ВМС США, летал на МКС в 2020. Первый темнокожий член лунной миссии.",
+                img: "/glover.jpg",
               },
               {
                 name: "Кристина Кох",
@@ -559,6 +561,7 @@ export default function Home() {
                 role: "Спец. миссии · NASA",
                 flag: "🇺🇸",
                 desc: "Рекордсменка по длительности полёта среди женщин — 328 дней на МКС.",
+                img: "/koch.jpg",
               },
               {
                 name: "Джереми Хансен",
@@ -566,14 +569,24 @@ export default function Home() {
                 role: "Спец. миссии · CSA",
                 flag: "🇨🇦",
                 desc: "Полковник ВВС Канады, истребительный лётчик. Первый канадец у Луны.",
+                img: "/hansen.jpg",
               },
             ].map((m, i) => (
               <div
                 key={i}
                 className="bg-[#0a1120] rounded-3xl border border-slate-800/60 p-8 flex flex-col items-center text-center hover:border-cyan-900/50 transition-colors"
               >
-                <div className="w-20 h-20 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center mb-4 text-3xl">
-                  🧑‍🚀
+                <div className="w-24 h-24 rounded-full bg-slate-800 border-2 border-slate-700 flex items-center justify-center mb-4 overflow-hidden shadow-[0_0_20px_rgba(0,0,0,0.5)] relative">
+                  <img
+                    src={m.img}
+                    alt={`Астронавт ${m.name}`}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      // Если картинка с таким именем не найдена, ставим заглушку (инициалы)
+                      (e.target as HTMLImageElement).src =
+                        `https://ui-avatars.com/api/?name=${m.eng}&background=0D1B2A&color=4DEEEA&bold=true`;
+                    }}
+                  />
                 </div>
                 <div className="text-lg mb-1">{m.flag}</div>
                 <h3 className="font-bold text-lg">{m.name}</h3>
