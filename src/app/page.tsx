@@ -7,6 +7,7 @@ import {
   CalendarDays,
   CheckCircle2,
   Circle,
+  Target,
 } from "lucide-react";
 import Scene3D from "@/components/Scene3D";
 import {
@@ -687,6 +688,104 @@ export default function Home() {
                 </div>
               </div>
             ))}
+          </div>
+        </section>
+        <section>
+          <div className="text-center mb-10">
+            <h2 className="text-3xl font-bold text-cyan-400 mb-2">
+              Программа Artemis
+            </h2>
+            <p className="text-xs text-slate-400 max-w-xl mx-auto leading-relaxed">
+              Цель программы — вернуть людей на Луну и подготовить путь к Марсу.
+              Artemis II — первый пилотируемый полёт после Artemis I
+              (беспилотный, 2022).
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {[
+                {
+                  icon: <Rocket size={20} />,
+                  label: "Ракета",
+                  title: "SLS Block 1",
+                  desc: "Самая мощная ракета NASA — 39.1 МН тяги",
+                },
+                {
+                  icon: <Globe size={20} />,
+                  label: "Корабль",
+                  title: "Orion MPCV",
+                  desc: "Рассчитан на 4 человек, с модулем ESA",
+                },
+                {
+                  icon: <Target size={20} />,
+                  label: "Тип миссии",
+                  title: "Пилотируемый облёт",
+                  desc: "Свободный возврат без выхода на орбиту Луны",
+                },
+                {
+                  icon: <CalendarDays size={20} />,
+                  label: "Длительность",
+                  title: "~10 дней",
+                  desc: "Первый пилотируемый полёт к Луне с 1972 г.",
+                },
+              ].map((item, i) => (
+                <div
+                  key={i}
+                  className="bg-[#0a1120] rounded-2xl border border-slate-800/60 p-6"
+                >
+                  <div className="text-cyan-500 mb-4">{item.icon}</div>
+                  <div className="text-[9px] text-slate-500 uppercase tracking-widest mb-1">
+                    {item.label}
+                  </div>
+                  <div className="font-bold text-white mb-2">{item.title}</div>
+                  <div className="text-xs text-slate-400 leading-relaxed">
+                    {item.desc}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Картинка Луны */}
+            <div className="bg-[#0a1120] rounded-2xl border border-slate-800/60 relative overflow-hidden min-h-[300px] flex items-end justify-center pb-6">
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 rounded-full bg-gradient-to-tr from-slate-900 to-slate-300 shadow-[0_0_50px_rgba(255,255,255,0.05)] opacity-80 bg-[url('/moon_color.jpg')] bg-cover bg-center"></div>
+              <span className="relative z-10 text-xs text-slate-300 bg-[#050b14]/80 border border-slate-700 px-4 py-2 rounded-full backdrop-blur-sm shadow-xl">
+                Расстояние до Луны: 384 400 км
+              </span>
+            </div>
+          </div>
+
+          {/* Будущие миссии */}
+          <div className="bg-[#0a1120] rounded-2xl border border-slate-800/60 p-8 mt-6">
+            <h3 className="text-xl font-bold text-white mb-6">
+              Будущие миссии
+            </h3>
+            <div className="flex flex-col gap-4">
+              {[
+                {
+                  id: "Artemis III",
+                  desc: "Посадка на южный полюс Луны с использованием лунного модуля SpaceX Starship HLS",
+                },
+                {
+                  id: "Artemis IV",
+                  desc: "Стыковка со станцией Gateway на лунной орбите",
+                },
+                {
+                  id: "Artemis V+",
+                  desc: "Регулярные экспедиции, строительство лунной базы, подготовка к Марсу",
+                },
+              ].map((mission, i) => (
+                <div
+                  key={i}
+                  className={`grid grid-cols-1 sm:grid-cols-[120px_1fr] gap-2 sm:gap-6 items-baseline ${i !== 2 ? "border-b border-slate-800/50 pb-4" : ""}`}
+                >
+                  <div className="text-cyan-500 font-bold text-sm">
+                    {mission.id}
+                  </div>
+                  <div className="text-slate-400 text-sm">{mission.desc}</div>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
       </div>
