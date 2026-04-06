@@ -1,77 +1,85 @@
 import { NextResponse } from "next/server";
 
+// Кэшируем ТОЛЬКО успешный итоговый ответ нашего API на 1 час (спасает серверы НАСА)
+export const revalidate = 3600;
+
 export async function GET() {
-  // 1. Задаем намеренно ШИРОКИЙ диапазон (с запасом в обе стороны)
-  let startTime = "2026-04-01";
+  // Начальные примерные даты (даже если они неточные, код сам их исправит)
+  let startTime = "2026-04-02";
   let stopTime = "2026-04-15";
 
   const baseUrl = `https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND='-1024'&OBJ_DATA='NO'&MAKE_EPHEM='YES'&EPHEM_TYPE='VECTORS'&CENTER='500@399'&STEP_SIZE='1%20h'&CSV_FORMAT='YES'`;
 
-  try {
-    let url = `${baseUrl}&START_TIME='${startTime}'&STOP_TIME='${stopTime}'`;
-    let res = await fetch(url, { next: { revalidate: 3600 } }); // Кэшируем на час
-    let textData = await res.text();
+  let textData = "";
+  let success = false;
 
-    // 2. АВТО-ИСПРАВЛЕНИЕ (Self-Healing)
-    // Если НАСА ругается, что мы запросили данные за пределами полета корабля,
-    // мы читаем текст их ошибки и берем ИДЕАЛЬНЫЕ даты прямо из нее!
+  // Делаем до 3-х попыток, так как НАСА выдает только одну ошибку за раз (сначала prior, потом after)
+  for (let i = 0; i < 3; i++) {
+    const url = `${baseUrl}&START_TIME='${startTime}'&STOP_TIME='${stopTime}'`;
+
+    // cache: 'no-store' ОЧЕНЬ ВАЖНО здесь! НАСА отдает 200 OK даже при ошибке текста.
+    // Если мы закэшируем этот ответ, мы закэшируем ошибку.
+    const res = await fetch(url, { cache: "no-store" });
+    textData = await res.text();
+
+    if (textData.includes("$$SOE")) {
+      success = true;
+      break; // Данные получены, выходим из цикла!
+    }
+
     if (textData.includes("No ephemeris for target")) {
-      // Ищем совпадения: "prior to A.D. 2026-APR-02 01:58:32.3050 TDB"
       const priorMatch = textData.match(/prior to A\.D\.\s+(.*?)\s+TDB/);
       const afterMatch = textData.match(/after A\.D\.\s+(.*?)\s+TDB/);
 
-      // Вытаскиваем даты и заменяем пробелы на %20 для URL
       if (priorMatch) startTime = priorMatch[1].trim().replace(/\s+/g, "%20");
       if (afterMatch) stopTime = afterMatch[1].trim().replace(/\s+/g, "%20");
 
       console.log(
-        `[API] Авто-коррекция дат НАСА: Старт=${startTime}, Финиш=${stopTime}`,
+        `[API] Коррекция НАСА (Попытка ${i + 1}): Старт=${startTime}, Финиш=${stopTime}`,
       );
-
-      // 3. Делаем повторный запрос с идеальными датами
-      url = `${baseUrl}&START_TIME='${startTime}'&STOP_TIME='${stopTime}'`;
-      res = await fetch(url, { next: { revalidate: 3600 } });
-      textData = await res.text();
+    } else {
+      // Какая-то другая техническая ошибка НАСА
+      console.error("Неизвестный ответ НАСА:", textData.substring(0, 200));
+      break;
     }
+  }
 
-    if (!textData.includes("$$SOE")) {
-      throw new Error("НАСА не вернуло данные эфемерид");
-    }
-
-    const lines = textData.split("\n");
-    let isData = false;
-    const ephemeris = [];
-
-    for (const line of lines) {
-      if (line.includes("$$EOE")) isData = false;
-
-      if (isData) {
-        const cols = line.split(",").map((c) => c.trim());
-        if (cols.length >= 8) {
-          const time = new Date(cols[1].replace("A.D. ", "")).getTime();
-          ephemeris.push({
-            time,
-            x: parseFloat(cols[2]),
-            y: parseFloat(cols[3]),
-            z: parseFloat(cols[4]),
-            vx: parseFloat(cols[5]),
-            vy: parseFloat(cols[6]),
-            vz: parseFloat(cols[7]),
-          });
-        }
-      }
-
-      if (line.includes("$$SOE")) isData = true;
-    }
-
-    if (ephemeris.length === 0) throw new Error("Пустой массив данных");
-
-    return NextResponse.json(ephemeris);
-  } catch (error) {
-    console.error("Критическая ошибка API NASA:", error);
+  // Если за 3 попытки так и не получили данные - отдаем 500 ошибку
+  if (!success) {
     return NextResponse.json(
       { error: "Failed to fetch spacecraft telemetry" },
       { status: 500 },
     );
   }
+
+  const lines = textData.split("\n");
+  let isData = false;
+  const ephemeris = [];
+
+  for (const line of lines) {
+    if (line.includes("$$EOE")) isData = false;
+
+    if (isData) {
+      const cols = line.split(",").map((c) => c.trim());
+      if (cols.length >= 8) {
+        // Обязательно добавляем ' UTC', чтобы сервер Vercel идеально точно распарсил время
+        const timeStr = cols[1].replace("A.D. ", "").trim() + " UTC";
+        const time = new Date(timeStr).getTime();
+
+        ephemeris.push({
+          time,
+          x: parseFloat(cols[2]),
+          y: parseFloat(cols[3]),
+          z: parseFloat(cols[4]),
+          vx: parseFloat(cols[5]),
+          vy: parseFloat(cols[6]),
+          vz: parseFloat(cols[7]),
+        });
+      }
+    }
+
+    if (line.includes("$$SOE")) isData = true;
+  }
+
+  return NextResponse.json(ephemeris);
 }
