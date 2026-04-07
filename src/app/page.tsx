@@ -618,89 +618,122 @@ export default function Home() {
 
             {[
               {
+                time: MISSION_START,
                 date: "2 апреля 2026",
                 title: "Старт",
                 desc: "Запуск SLS с космодрома Кеннеди, Флорида",
-                status: "done",
               },
               {
+                time: MISSION_START + 2 * 60 * 1000,
                 date: "2 апреля 2026",
                 title: "Отделение ускорителей",
                 desc: "Твердотопливные ускорители отделились через 2 мин после старта",
-                status: "done",
               },
               {
+                time: MISSION_START + 18 * 60 * 1000,
                 date: "2 апреля 2026",
                 title: "Выход на орбиту",
                 desc: "Орион на околоземной орбите, проверка систем",
-                status: "done",
               },
               {
-                date: "3 апреля 2026",
+                time: MISSION_START + 2 * 60 * 60 * 1000,
+                date: "2 апреля 2026",
                 title: "TLI — Транслунный импульс",
                 desc: "Двигатель ICPS разгоняет корабль к Луне",
-                status: "active",
               },
               {
-                date: "5 апреля 2026",
-                title: "Коррекция траектории",
-                desc: "Служебный модуль ESM корректирует курс",
-                status: "future",
+                time: MISSION_START + 24 * 60 * 60 * 1000,
+                date: "3-5 апреля 2026",
+                title: "Транслунный перелёт",
+                desc: "Служебный модуль ESM корректирует курс на пути к Луне",
               },
+              // Облёт Луны начинается на 4.4 день миссии (ночь с 6 на 7 апреля)
               {
-                date: "7 апреля 2026",
+                time: MISSION_START + 4.4 * 24 * 60 * 60 * 1000,
+                date: "6-7 апреля 2026",
                 title: "Облёт Луны",
-                desc: "Пролёт в ~130 км от поверхности за обратной стороной",
-                status: "future",
+                desc: "Гравитационный маневр за обратной стороной Луны",
               },
+              // Обратный перелет начинается ровно на 5.0 день миссии (утро 7 апреля)
               {
-                date: "9 апреля 2026",
+                time: MISSION_START + 5.0 * 24 * 60 * 60 * 1000,
+                date: "7-10 апреля 2026",
                 title: "Обратный перелёт",
-                desc: "Свободный возврат к Земле",
-                status: "future",
+                desc: "Облет завершен, корабль возвращается к Земле",
+              },
+              // Подготовка к посадке за 4 часа до конца
+              {
+                time: MISSION_END - 4 * 60 * 60 * 1000,
+                date: "11 апреля 2026",
+                title: "Подготовка к посадке",
+                desc: "Отделение служебного модуля и вход в атмосферу",
               },
               {
-                date: "12 апреля 2026",
+                time: MISSION_END,
+                date: "11 апреля 2026",
                 title: "Приводнение",
                 desc: "Посадка в Тихом океане у берегов Калифорнии",
-                status: "future",
               },
-            ].map((step, i) => (
-              <div key={i} className="relative pl-12 pb-6 group">
-                <div className="absolute left-0 top-1.5 w-8 h-8 bg-[#02050A] flex items-center justify-center">
-                  {step.status === "done" && (
-                    <CheckCircle2 size={18} className="text-cyan-600" />
-                  )}
-                  {step.status === "active" && (
-                    <Rocket size={18} className="text-cyan-400 rotate-45" />
-                  )}
-                  {step.status === "future" && (
-                    <Circle size={14} className="text-slate-700" />
-                  )}
-                </div>
+            ].map((step, i, arr) => {
+              // УМНАЯ ЛОГИКА СТАТУСОВ:
+              // Берем время текущего шага и время следующего шага
+              const currentStepTime = step.time;
+              const nextStepTime =
+                i < arr.length - 1 ? arr[i + 1].time : Infinity;
 
-                <div
-                  className={`bg-[#0a1120] rounded-2xl border p-5 transition-colors ${step.status === "active" ? "border-cyan-800/60 shadow-[0_0_15px_rgba(34,211,238,0.05)]" : "border-slate-800/60 group-hover:border-slate-700"}`}
-                >
-                  <div className="flex items-center gap-3 mb-1">
-                    <span className="text-[10px] text-slate-500 uppercase tracking-widest">
-                      {step.date}
-                    </span>
-                    {step.status === "active" && (
-                      <span className="bg-cyan-900/40 text-cyan-400 text-[8px] px-2 py-0.5 rounded uppercase tracking-widest">
-                        Сейчас
-                      </span>
+              let status = "future";
+              // Если ползунок времени прошел текущий шаг, но еще не дошел до следующего — значит это АКТИВНЫЙ шаг
+              if (scrubTime >= currentStepTime && scrubTime < nextStepTime)
+                status = "active";
+              // Если ползунок времени уже прошел и следующий шаг — значит текущий ВЫПОЛНЕН
+              else if (scrubTime >= nextStepTime) status = "done";
+
+              return (
+                <div key={i} className="relative pl-12 pb-6 group">
+                  <div className="absolute left-0 top-1.5 w-8 h-8 bg-[#02050A] flex items-center justify-center z-10">
+                    {status === "done" && (
+                      <CheckCircle2
+                        size={18}
+                        className="text-cyan-600 bg-[#02050A]"
+                      />
+                    )}
+                    {status === "active" && (
+                      <Rocket
+                        size={18}
+                        className="text-cyan-400 rotate-45 bg-[#02050A]"
+                      />
+                    )}
+                    {status === "future" && (
+                      <Circle
+                        size={14}
+                        className="text-slate-700 bg-[#02050A]"
+                      />
                     )}
                   </div>
-                  <h4
-                    className={`text-base font-bold ${step.status === "active" ? "text-white" : "text-slate-300"} mb-1`}
+
+                  <div
+                    className={`bg-[#0a1120] rounded-2xl border p-5 transition-colors ${status === "active" ? "border-cyan-800/60 shadow-[0_0_15px_rgba(34,211,238,0.05)]" : "border-slate-800/60 group-hover:border-slate-700"}`}
                   >
-                    {step.title}
-                  </h4>
-                  <p className="text-xs text-slate-500">{step.desc}</p>
+                    <div className="flex items-center gap-3 mb-1">
+                      <span className="text-[10px] text-slate-500 uppercase tracking-widest">
+                        {step.date}
+                      </span>
+                      {status === "active" && (
+                        <span className="bg-cyan-900/40 text-cyan-400 text-[8px] px-2 py-0.5 rounded uppercase tracking-widest">
+                          Сейчас
+                        </span>
+                      )}
+                    </div>
+                    <h4
+                      className={`text-base font-bold ${status === "active" ? "text-white" : "text-slate-300"} mb-1`}
+                    >
+                      {step.title}
+                    </h4>
+                    <p className="text-xs text-slate-500">{step.desc}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
         <section>
