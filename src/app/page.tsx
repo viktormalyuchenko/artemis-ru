@@ -7,6 +7,7 @@ import {
   CalendarDays,
   CheckCircle2,
   Circle,
+  AlertTriangle,
   Target,
 } from "lucide-react";
 import Scene3D from "@/components/Scene3D";
@@ -33,9 +34,16 @@ export default function Home() {
   const [moonPos3D, setMoonPos3D] = useState({ x: 384, y: 0, z: 0 });
   const [liveTelemetry, setLiveTelemetry] =
     useState<TelemetryPoint>(emptyTelemetry);
-  const [focus, setFocus] = useState("EARTH"); // Удалили WIDE, по умолчанию EARTH
+  const [focus, setFocus] = useState("EARTH");
+
   const [met, setMet] = useState({
     days: "00",
+    hours: "00",
+    minutes: "00",
+    seconds: "00",
+  });
+  // НОВЫЙ СТЕЙТ: Обратный отсчет до посадки
+  const [countdown, setCountdown] = useState({
     hours: "00",
     minutes: "00",
     seconds: "00",
@@ -91,18 +99,33 @@ export default function Home() {
 
       if (isLiveScrub) setScrubTime(now);
 
-      const diff = Math.max(0, now - MISSION_START);
+      // Время в полете (MET)
+      const diffMet = Math.max(0, now - MISSION_START);
       setMet({
-        days: Math.floor(diff / (1000 * 60 * 60 * 24))
+        days: Math.floor(diffMet / (1000 * 60 * 60 * 24))
           .toString()
           .padStart(2, "0"),
-        hours: Math.floor((diff / (1000 * 60 * 60)) % 24)
+        hours: Math.floor((diffMet / (1000 * 60 * 60)) % 24)
           .toString()
           .padStart(2, "0"),
-        minutes: Math.floor((diff / 1000 / 60) % 60)
+        minutes: Math.floor((diffMet / 1000 / 60) % 60)
           .toString()
           .padStart(2, "0"),
-        seconds: Math.floor((diff / 1000) % 60)
+        seconds: Math.floor((diffMet / 1000) % 60)
+          .toString()
+          .padStart(2, "0"),
+      });
+
+      // Обратный отсчет до посадки
+      const diffEnd = Math.max(0, MISSION_END - now);
+      setCountdown({
+        hours: Math.floor(diffEnd / (1000 * 60 * 60))
+          .toString()
+          .padStart(2, "0"),
+        minutes: Math.floor((diffEnd / 1000 / 60) % 60)
+          .toString()
+          .padStart(2, "0"),
+        seconds: Math.floor((diffEnd / 1000) % 60)
           .toString()
           .padStart(2, "0"),
       });
@@ -114,16 +137,10 @@ export default function Home() {
     return () => cancelAnimationFrame(animationId);
   }, [trajectoryData, isLiveScrub, scrubTime, mounted]);
 
-  // ============================================================================
-  // ЛОГИКА ГОРИЗОНТАЛЬНОГО ПОВОРОТА 2D КАРТЫ
-  // ============================================================================
-
-  // Вычисляем угол, на который нужно повернуть все точки, чтобы Луна оказалась на оси X (горизонтально)
   const angle = Math.atan2(moonPos3D.y, moonPos3D.x);
   const cosT = Math.cos(-angle);
   const sinT = Math.sin(-angle);
 
-  // Функция поворота точки и переворота оси Y для правильного отображения в SVG
   const rotatePoint = (x: number, y: number) => ({
     x: x * cosT - y * sinT,
     y: -(x * sinT + y * cosT),
@@ -139,7 +156,6 @@ export default function Home() {
         w: 500000,
         h: 200000,
       };
-
     let minX = 0,
       maxX = 0,
       minY = 0,
@@ -151,10 +167,8 @@ export default function Home() {
       if (rp.y < minY) minY = rp.y;
       if (rp.y > maxY) maxY = rp.y;
     });
-
     const padX = Math.abs(maxX - minX) * 0.1 || 20000;
     const padY = Math.abs(maxY - minY) * 0.2 || 50000;
-
     return {
       minX: minX - padX,
       maxX: maxX + padX,
@@ -177,8 +191,6 @@ export default function Home() {
 
   const moonSvgPos = rotatePoint(moonPos3D.x * 1000, moonPos3D.y * 1000);
   const orionSvgPos = rotatePoint(scrubTelemetry.x, scrubTelemetry.y);
-
-  // ============================================================================
 
   const orionPos3D = {
     x: liveTelemetry.x / 1000,
@@ -206,6 +218,9 @@ export default function Home() {
     maximumFractionDigits: 2,
   });
 
+  // Вся дата конца миссии (10 апреля 23:54 UTC) = 11 апреля 02:54 МСК
+  const isMissionEnded = Date.now() >= MISSION_END;
+
   return (
     <main className="min-h-screen bg-[#02050A] text-white font-sans selection:bg-cyan-500/30 pb-20">
       <div className="fixed inset-0 pointer-events-none opacity-40 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')]"></div>
@@ -217,44 +232,88 @@ export default function Home() {
             Миссия в процессе
           </span>
         </div>
+
         <h1 className="text-5xl md:text-7xl font-bold tracking-widest text-[#4deeea] uppercase mb-4 drop-shadow-[0_0_30px_rgba(77,238,234,0.3)]">
           Artemis II
         </h1>
-        <p className="text-slate-400 max-w-xl text-sm md:text-base mb-10">
-          Первый пилотируемый полёт к Луне за 50+ лет. Четверо астронавтов
-          совершают облёт Луны на корабле Orion.
-        </p>
 
-        <div className="flex gap-4 md:gap-6 mb-4">
-          {[
-            { label: "ДНЕЙ", value: mounted ? met.days : "00" },
-            { label: "ЧАСОВ", value: mounted ? met.hours : "00" },
-            { label: "МИНУТ", value: mounted ? met.minutes : "00" },
-            { label: "СЕКУНД", value: mounted ? met.seconds : "00" },
-          ].map((item, i) => (
-            <div key={i} className="flex flex-col items-center">
-              <div className="w-14 h-16 md:w-20 md:h-24 bg-[#0a1120] border border-slate-800/60 rounded-xl flex items-center justify-center text-2xl md:text-4xl font-mono font-bold shadow-lg">
-                {item.value}
-              </div>
-              <span className="text-[9px] md:text-[10px] text-slate-500 uppercase tracking-widest mt-2">
-                {item.label}
-              </span>
-            </div>
-          ))}
+        {/* НОВИНКА: SEO Плашка с точным МСК временем */}
+        <div className="bg-red-950/40 border border-red-900/50 text-red-200 px-6 py-3 rounded-2xl mb-8 flex items-center gap-3 max-w-2xl text-sm md:text-base backdrop-blur-sm shadow-[0_0_20px_rgba(220,38,38,0.15)]">
+          <AlertTriangle className="text-red-500 shrink-0" size={20} />
+          <p>
+            <strong className="text-red-400">Финал миссии:</strong> Вход в
+            атмосферу и посадка состоятся{" "}
+            <span className="font-bold text-white bg-red-500/20 px-2 py-0.5 rounded">
+              11 апреля в 02:54 (МСК)
+            </span>
+            .
+          </p>
         </div>
-        <div className="text-[10px] text-slate-500 uppercase tracking-widest mb-6">
-          Время с момента старта (MET)
+
+        {/* СЧЕТЧИКИ ВРЕМЕНИ */}
+        <div className="flex flex-wrap justify-center gap-6 md:gap-12 mb-4">
+          {/* Время в полете */}
+          <div className="flex flex-col items-center">
+            <div className="flex gap-2 md:gap-3">
+              {[
+                { l: "ДНЕЙ", v: met.days },
+                { l: "ЧАСОВ", v: met.hours },
+                { l: "МИНУТ", v: met.minutes },
+              ].map((item, i) => (
+                <div key={i} className="flex flex-col items-center">
+                  <div className="w-12 h-14 md:w-16 md:h-20 bg-[#0a1120] border border-slate-800/60 rounded-xl flex items-center justify-center text-xl md:text-3xl font-mono font-bold shadow-lg">
+                    {mounted ? item.v : "00"}
+                  </div>
+                  <span className="text-[8px] md:text-[9px] text-slate-500 uppercase tracking-widest mt-2">
+                    {item.l}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="text-[10px] text-slate-500 uppercase tracking-widest mt-4">
+              Время в полете (MET)
+            </div>
+          </div>
+
+          {/* Обратный отсчет до посадки */}
+          <div className="flex flex-col items-center">
+            <div className="flex gap-2 md:gap-3">
+              {[
+                { l: "ЧАСОВ", v: countdown.hours },
+                { l: "МИНУТ", v: countdown.minutes },
+                { l: "СЕКУНД", v: countdown.seconds },
+              ].map((item, i) => (
+                <div key={i} className="flex flex-col items-center">
+                  <div
+                    className={`w-12 h-14 md:w-16 md:h-20 bg-[#1a0b12] border ${isMissionEnded ? "border-emerald-800/60 text-emerald-400" : "border-red-900/50 text-red-400"} rounded-xl flex items-center justify-center text-xl md:text-3xl font-mono font-bold shadow-lg`}
+                  >
+                    {mounted ? (isMissionEnded ? "00" : item.v) : "00"}
+                  </div>
+                  <span className="text-[8px] md:text-[9px] text-slate-500 uppercase tracking-widest mt-2">
+                    {item.l}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div
+              className={`text-[10px] uppercase tracking-widest mt-4 font-bold ${isMissionEnded ? "text-emerald-500" : "text-red-500 animate-pulse"}`}
+            >
+              {isMissionEnded ? "МИССИЯ ЗАВЕРШЕНА" : "Осталось до посадки"}
+            </div>
+          </div>
         </div>
       </header>
 
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 flex flex-col gap-16 relative z-10">
+        {/* 1. ПОЛОЖЕНИЕ КОРАБЛЯ (ШИРОКИЙ 3D БЛОК) */}
         <section>
           <div className="text-center mb-8">
+            {/* SEO ЗАГОЛОВОК 1 */}
             <h2 className="text-3xl font-bold text-cyan-400 mb-2">
-              Положение корабля
+              Интерактивная онлайн-карта полета
             </h2>
             <p className="text-xs text-slate-500 uppercase tracking-widest">
-              Обновляется в реальном времени
+              Отслеживание Orion в реальном времени
             </p>
           </div>
 
@@ -317,7 +376,7 @@ export default function Home() {
               </div>
               <div className="text-sm md:text-base font-bold text-emerald-400 flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>{" "}
-                Транслунный перелёт
+                Возврат к Земле
               </div>
             </div>
             <div className="bg-[#0a1120] rounded-2xl border border-slate-800/60 p-5 flex flex-col justify-center items-center text-center">
@@ -359,11 +418,12 @@ export default function Home() {
           <div className="bg-[#0a1120] rounded-3xl border border-slate-800/60 p-6 md:p-10">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
               <div>
+                {/* SEO ЗАГОЛОВОК 2 */}
                 <h3 className="text-xl font-bold text-white mb-1">
-                  Машина времени (Симуляция)
+                  Траектория и онлайн-трекер облета Луны
                 </h3>
                 <p className="text-xs text-slate-500 uppercase tracking-widest">
-                  Перемещайтесь по траектории миссии
+                  Интерактивная машина времени миссии
                 </p>
               </div>
               <div className="flex items-center gap-4">
@@ -391,7 +451,6 @@ export default function Home() {
                 viewBox={`${mapBounds.minX} ${mapBounds.minY} ${mapBounds.w} ${mapBounds.h}`}
                 preserveAspectRatio="xMidYMid meet"
               >
-                {/* Траектория */}
                 <path
                   d={svgPathData}
                   fill="none"
@@ -420,7 +479,6 @@ export default function Home() {
                   </linearGradient>
                 </defs>
 
-                {/* Земля (Координаты 0,0 после вращения) */}
                 <g transform="translate(0, 0)">
                   <circle
                     r={mapBounds.w * 0.015}
@@ -439,7 +497,6 @@ export default function Home() {
                   </text>
                 </g>
 
-                {/* Луна */}
                 <g transform={`translate(${moonSvgPos.x}, ${moonSvgPos.y})`}>
                   <circle r={mapBounds.w * 0.006} fill="#94a3b8" />
                   <text
@@ -453,7 +510,6 @@ export default function Home() {
                   </text>
                 </g>
 
-                {/* Корабль Орион */}
                 <g
                   transform={`translate(${orionSvgPos.x}, ${orionSvgPos.y})`}
                   className="transition-all duration-75"
@@ -498,7 +554,6 @@ export default function Home() {
               </svg>
             </div>
 
-            {/* Ползунок времени */}
             <div className="relative h-8 flex items-center group">
               <input
                 type="range"
@@ -582,7 +637,6 @@ export default function Home() {
                     alt={`Астронавт ${m.name}`}
                     className="w-full h-full object-cover"
                     onError={(e) => {
-                      // Если картинка с таким именем не найдена, ставим заглушку (инициалы)
                       (e.target as HTMLImageElement).src =
                         `https://ui-avatars.com/api/?name=${m.eng}&background=0D1B2A&color=4DEEEA&bold=true`;
                     }}
@@ -647,21 +701,18 @@ export default function Home() {
                 title: "Транслунный перелёт",
                 desc: "Служебный модуль ESM корректирует курс на пути к Луне",
               },
-              // Облёт Луны начинается на 4.4 день миссии (ночь с 6 на 7 апреля)
               {
                 time: MISSION_START + 4.4 * 24 * 60 * 60 * 1000,
                 date: "6-7 апреля 2026",
                 title: "Облёт Луны",
                 desc: "Гравитационный маневр за обратной стороной Луны",
               },
-              // Обратный перелет начинается ровно на 5.0 день миссии (утро 7 апреля)
               {
                 time: MISSION_START + 5.0 * 24 * 60 * 60 * 1000,
                 date: "7-10 апреля 2026",
                 title: "Обратный перелёт",
                 desc: "Облет завершен, корабль возвращается к Земле",
               },
-              // Подготовка к посадке за 4 часа до конца
               {
                 time: MISSION_END - 4 * 60 * 60 * 1000,
                 date: "11 апреля 2026",
@@ -670,22 +721,18 @@ export default function Home() {
               },
               {
                 time: MISSION_END,
-                date: "11 апреля 2026",
+                date: "11 апреля 2026 (02:54 МСК)",
                 title: "Приводнение",
                 desc: "Посадка в Тихом океане у берегов Калифорнии",
               },
             ].map((step, i, arr) => {
-              // УМНАЯ ЛОГИКА СТАТУСОВ:
-              // Берем время текущего шага и время следующего шага
               const currentStepTime = step.time;
               const nextStepTime =
                 i < arr.length - 1 ? arr[i + 1].time : Infinity;
 
               let status = "future";
-              // Если ползунок времени прошел текущий шаг, но еще не дошел до следующего — значит это АКТИВНЫЙ шаг
               if (scrubTime >= currentStepTime && scrubTime < nextStepTime)
                 status = "active";
-              // Если ползунок времени уже прошел и следующий шаг — значит текущий ВЫПОЛНЕН
               else if (scrubTime >= nextStepTime) status = "done";
 
               return (
@@ -736,6 +783,8 @@ export default function Home() {
             })}
           </div>
         </section>
+
+        {/* 5. ПРОГРАММА ARTEMIS */}
         <section>
           <div className="text-center mb-10">
             <h2 className="text-3xl font-bold text-cyan-400 mb-2">
@@ -792,7 +841,6 @@ export default function Home() {
               ))}
             </div>
 
-            {/* Картинка Луны */}
             <div className="bg-[#0a1120] rounded-2xl border border-slate-800/60 relative overflow-hidden min-h-[300px] flex items-end justify-center pb-6">
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 rounded-full bg-gradient-to-tr from-slate-900 to-slate-300 shadow-[0_0_50px_rgba(255,255,255,0.05)] opacity-80 bg-[url('/moon_color.jpg')] bg-cover bg-center"></div>
               <span className="relative z-10 text-xs text-slate-300 bg-[#050b14]/80 border border-slate-700 px-4 py-2 rounded-full backdrop-blur-sm shadow-xl">
@@ -801,7 +849,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Будущие миссии */}
           <div className="bg-[#0a1120] rounded-2xl border border-slate-800/60 p-8 mt-6">
             <h3 className="text-xl font-bold text-white mb-6">
               Будущие миссии

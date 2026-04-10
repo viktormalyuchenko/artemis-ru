@@ -7,15 +7,16 @@ import Navbar from "@/components/Navbar";
 const inter = Inter({ subsets: ["latin", "cyrillic"] });
 
 export const metadata: Metadata = {
-  title: "Artemis II Tracker | Трекер миссии в реальном времени",
+  title: "Artemis II Tracker | Интерактивная онлайн-карта и трекер полета",
   description:
-    "Отслеживайте первый пилотируемый полет к Луне за 50 лет (Artemis II). Интерактивная 3D-модель, телеметрия NASA JPL в реальном времени, скорость, расстояние и таймлайн миссии.",
+    "Отслеживайте полет корабля Orion миссии Artemis 2 к Луне в режиме реального времени. Интерактивная 3D-карта, точная траектория, дистанция и время входа в атмосферу по Москве.",
   keywords:
-    "Artemis II, NASA, космос, полет на луну, Орион, трекер миссии, 3D симуляция, телеметрия",
+    "artemis 2, онлайн карта, трекер, где сейчас, траектория, интерактивная, облет луны, вход в атмосферу по москве, orion, артемида 2",
   authors: [{ name: "Viktoor" }],
   openGraph: {
-    title: "Artemis II Tracker | Прямой эфир",
-    description: "Следите за полетом корабля Orion к Луне в реальном времени.",
+    title: "Artemis 2 Tracker | Прямой эфир",
+    description:
+      "Где сейчас корабль Artemis 2? Следите за траекторией полета к Луне на интерактивной онлайн-карте.",
     type: "website",
     locale: "ru_RU",
     siteName: "Artemis II Mission Tracker",
@@ -23,7 +24,6 @@ export const metadata: Metadata = {
   icons: {
     icon: "https://www.nasa.gov/wp-content/themes/nasa/assets/images/nasa-logo.svg",
   },
-  // ВСТАВЛЯЕМ ВЕРИФИКАЦИЮ YANDEX И GOOGLE СЮДА:
   verification: {
     google: "Ihz5Cd5vkNkVuh36pZjbyhECtbKBY5oZu7pMs4t5kXU",
     yandex: "87b7d6e4f4b9cfc5",
