@@ -42,7 +42,6 @@ export default function Home() {
     minutes: "00",
     seconds: "00",
   });
-  // НОВЫЙ СТЕЙТ: Обратный отсчет до посадки
   const [countdown, setCountdown] = useState({
     hours: "00",
     minutes: "00",
@@ -87,6 +86,8 @@ export default function Home() {
 
     const tick = () => {
       const now = Date.now();
+      const isMissionEnded = now >= MISSION_END;
+
       const currentLiveData = getInterpolatedTelemetry(trajectoryData, now);
       if (currentLiveData) setLiveTelemetry(currentLiveData);
 
@@ -99,8 +100,10 @@ export default function Home() {
 
       if (isLiveScrub) setScrubTime(now);
 
-      // Время в полете (MET)
-      const diffMet = Math.max(0, now - MISSION_START);
+      // Замораживаем MET, если миссия окончена
+      const diffMet = isMissionEnded
+        ? Math.max(0, MISSION_END - MISSION_START)
+        : Math.max(0, now - MISSION_START);
       setMet({
         days: Math.floor(diffMet / (1000 * 60 * 60 * 24))
           .toString()
@@ -116,7 +119,6 @@ export default function Home() {
           .padStart(2, "0"),
       });
 
-      // Обратный отсчет до посадки
       const diffEnd = Math.max(0, MISSION_END - now);
       setCountdown({
         hours: Math.floor(diffEnd / (1000 * 60 * 60))
@@ -190,13 +192,35 @@ export default function Home() {
   }, [trajectoryData, moonPos3D]);
 
   const moonSvgPos = rotatePoint(moonPos3D.x * 1000, moonPos3D.y * 1000);
-  const orionSvgPos = rotatePoint(scrubTelemetry.x, scrubTelemetry.y);
 
-  const orionPos3D = {
-    x: liveTelemetry.x / 1000,
-    y: liveTelemetry.y / 1000,
-    z: liveTelemetry.z / 1000,
+  // ============================================================================
+  // ИДЕАЛЬНАЯ ЛОГИКА ОТОБРАЖЕНИЯ (Симуляция + Финал)
+  // ============================================================================
+  const isMissionEnded = Date.now() >= MISSION_END;
+
+  // Объединяем данные для отрисовки (зависит от того, тянем ли мы ползунок)
+  const currentTelemetry = isLiveScrub ? liveTelemetry : scrubTelemetry;
+  const activeTime = isLiveScrub ? Date.now() : scrubTime;
+  const isEnded = activeTime >= MISSION_END;
+
+  let surfaceDistance = Math.max(0, currentTelemetry.distance - 6371);
+  let displaySpeed = currentTelemetry.speed;
+
+  let orionPos3D = {
+    x: currentTelemetry.x / 1000,
+    y: currentTelemetry.y / 1000,
+    z: currentTelemetry.z / 1000,
   };
+  let orionSvgPos = rotatePoint(currentTelemetry.x, currentTelemetry.y);
+
+  // Если миссия (или позиция на ползунке) завершена - жестко сажаем корабль на Землю!
+  if (isEnded) {
+    surfaceDistance = 0;
+    displaySpeed = 0;
+    orionPos3D = { x: -6.3, y: 0, z: 0 }; // Поверхность Земли со стороны камеры EARTH
+    orionSvgPos = { x: 0, y: 0 }; // Центр Земли на 2D карте
+  }
+
   const progressPercent = Math.min(
     100,
     ((Date.now() - MISSION_START) / (MISSION_END - MISSION_START)) * 100,
@@ -206,20 +230,16 @@ export default function Home() {
     ((scrubTime - MISSION_START) / (MISSION_END - MISSION_START)) * 100,
   ).toFixed(0);
 
-  const surfaceDistance = Math.max(0, liveTelemetry.distance - 6371);
   const formattedDistance = surfaceDistance
     .toLocaleString("ru-RU", {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     })
     .replace(/,/g, " ");
-  const formattedSpeed = liveTelemetry.speed.toLocaleString("ru-RU", {
+  const formattedSpeed = displaySpeed.toLocaleString("ru-RU", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-
-  // Вся дата конца миссии (10 апреля 23:54 UTC) = 11 апреля 02:54 МСК
-  const isMissionEnded = Date.now() >= MISSION_END;
 
   return (
     <main className="min-h-screen bg-[#02050A] text-white font-sans selection:bg-cyan-500/30 pb-20">
@@ -227,9 +247,11 @@ export default function Home() {
 
       <header className="relative pt-12 pb-10 flex flex-col items-center text-center px-4">
         <div className="bg-[#0a1120] border border-cyan-900/50 rounded-full px-4 py-1.5 flex items-center gap-2 mb-6">
-          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+          <div
+            className={`w-2 h-2 rounded-full ${isMissionEnded ? "bg-cyan-500" : "bg-emerald-500 animate-pulse"}`}
+          ></div>
           <span className="text-[10px] text-cyan-400 uppercase tracking-widest">
-            Миссия в процессе
+            {isMissionEnded ? "Миссия успешно завершена" : "Миссия в процессе"}
           </span>
         </div>
 
@@ -237,8 +259,9 @@ export default function Home() {
           Artemis II
         </h1>
 
-        {/* НОВИНКА: SEO Плашка с точным МСК временем */}
-        <div className="bg-red-950/40 border border-red-900/50 text-red-200 px-6 py-3 rounded-2xl mb-8 flex items-center gap-3 max-w-2xl text-sm md:text-base backdrop-blur-sm shadow-[0_0_20px_rgba(220,38,38,0.15)]">
+        <div
+          className={`bg-red-950/40 border border-red-900/50 text-red-200 px-6 py-3 rounded-2xl mb-8 flex items-center gap-3 max-w-2xl text-sm md:text-base backdrop-blur-sm shadow-[0_0_20px_rgba(220,38,38,0.15)] ${isMissionEnded ? "hidden" : ""}`}
+        >
           <AlertTriangle className="text-red-500 shrink-0" size={20} />
           <p>
             <strong className="text-red-400">Финал миссии:</strong> Вход в
@@ -252,7 +275,6 @@ export default function Home() {
 
         {/* СЧЕТЧИКИ ВРЕМЕНИ */}
         <div className="flex flex-wrap justify-center gap-6 md:gap-12 mb-4">
-          {/* Время в полете */}
           <div className="flex flex-col items-center">
             <div className="flex gap-2 md:gap-3">
               {[
@@ -271,11 +293,10 @@ export default function Home() {
               ))}
             </div>
             <div className="text-[10px] text-slate-500 uppercase tracking-widest mt-4">
-              Время в полете (MET)
+              Итоговое время в полете (MET)
             </div>
           </div>
 
-          {/* Обратный отсчет до посадки */}
           <div className="flex flex-col items-center">
             <div className="flex gap-2 md:gap-3">
               {[
@@ -298,7 +319,7 @@ export default function Home() {
             <div
               className={`text-[10px] uppercase tracking-widest mt-4 font-bold ${isMissionEnded ? "text-emerald-500" : "text-red-500 animate-pulse"}`}
             >
-              {isMissionEnded ? "МИССИЯ ЗАВЕРШЕНА" : "Осталось до посадки"}
+              {isMissionEnded ? "ЭКИПАЖ НА ЗЕМЛЕ" : "Осталось до посадки"}
             </div>
           </div>
         </div>
@@ -308,7 +329,6 @@ export default function Home() {
         {/* 1. ПОЛОЖЕНИЕ КОРАБЛЯ (ШИРОКИЙ 3D БЛОК) */}
         <section>
           <div className="text-center mb-8">
-            {/* SEO ЗАГОЛОВОК 1 */}
             <h2 className="text-3xl font-bold text-cyan-400 mb-2">
               Интерактивная онлайн-карта полета
             </h2>
@@ -348,7 +368,9 @@ export default function Home() {
 
               <div className="flex justify-center items-center gap-4 text-[10px] md:text-[11px] text-slate-400 mb-6 tracking-wider uppercase font-mono">
                 <span>↑ {mounted ? formattedSpeed : "-.--"} КМ/С</span>
-                <span className="text-emerald-500">ОНЛАЙН (NASA)</span>
+                <span className="text-emerald-500">
+                  {isEnded ? "ПОСАДКА" : "ОНЛАЙН (NASA)"}
+                </span>
               </div>
 
               <div className="flex justify-center gap-4 w-full">
@@ -375,8 +397,10 @@ export default function Home() {
                 Статус
               </div>
               <div className="text-sm md:text-base font-bold text-emerald-400 flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>{" "}
-                Возврат к Земле
+                <div
+                  className={`w-2 h-2 rounded-full bg-emerald-500 ${isEnded ? "" : "animate-pulse"}`}
+                ></div>
+                {isEnded ? "Миссия завершена" : "Возврат к Земле"}
               </div>
             </div>
             <div className="bg-[#0a1120] rounded-2xl border border-slate-800/60 p-5 flex flex-col justify-center items-center text-center">
@@ -384,7 +408,11 @@ export default function Home() {
                 День миссии
               </div>
               <div className="text-xl md:text-2xl font-bold text-white">
-                {mounted ? parseInt(met.days) + 1 : "-"}{" "}
+                {mounted
+                  ? isMissionEnded
+                    ? "10"
+                    : parseInt(met.days) + 1
+                  : "-"}{" "}
                 <span className="text-sm text-slate-500">из 10</span>
               </div>
             </div>
@@ -413,12 +441,11 @@ export default function Home() {
           </div>
         </section>
 
-        {/* 2. ИНТЕРАКТИВНЫЙ ТАЙМЛАЙН 2D (ГОРИЗОНТАЛЬНАЯ КАРТА) */}
+        {/* 2. ИНТЕРАКТИВНЫЙ ТАЙМЛАЙН 2D */}
         <section>
           <div className="bg-[#0a1120] rounded-3xl border border-slate-800/60 p-6 md:p-10">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
               <div>
-                {/* SEO ЗАГОЛОВОК 2 */}
                 <h3 className="text-xl font-bold text-white mb-1">
                   Траектория и онлайн-трекер облета Луны
                 </h3>
@@ -522,20 +549,24 @@ export default function Home() {
                         : "rgba(251, 191, 36, 0.2)"
                     }
                   >
-                    <animate
-                      attributeName="r"
-                      from={mapBounds.w * 0.01}
-                      to={mapBounds.w * 0.02}
-                      dur="1.5s"
-                      repeatCount="indefinite"
-                    />
-                    <animate
-                      attributeName="opacity"
-                      from="1"
-                      to="0"
-                      dur="1.5s"
-                      repeatCount="indefinite"
-                    />
+                    {!isEnded && (
+                      <animate
+                        attributeName="r"
+                        from={mapBounds.w * 0.01}
+                        to={mapBounds.w * 0.02}
+                        dur="1.5s"
+                        repeatCount="indefinite"
+                      />
+                    )}
+                    {!isEnded && (
+                      <animate
+                        attributeName="opacity"
+                        from="1"
+                        to="0"
+                        dur="1.5s"
+                        repeatCount="indefinite"
+                      />
+                    )}
                   </circle>
                   <circle
                     r={mapBounds.w * 0.004}
